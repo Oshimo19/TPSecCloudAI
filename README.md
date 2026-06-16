@@ -2,7 +2,7 @@
 
 > VPC · EC2 · Security Groups · NACL · Terraform · Ansible
 
-**[Documentation pour TD Jour 1](./docs.md)**
+**[Documentation pour TD Jour 1](./td-jour1/docs.md)**
 
 ---
 
