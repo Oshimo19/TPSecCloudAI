@@ -12,7 +12,7 @@ variable "vpc_id" {
 
 variable "instance_type" {
   type    = string
-  default = "t2.micro"
+  default = "t3.micro"
 }
 
 variable "ami_id" {
@@ -21,7 +21,7 @@ variable "ami_id" {
 
 variable "ssh_user" {
   type    = string
-  default = "admin"
+  default = "ubuntu"
 }
 
 variable "subnets_cidr_block" {

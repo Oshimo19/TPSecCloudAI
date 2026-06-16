@@ -1,8 +1,22 @@
-.vscode
-.env
-LICENSE.txt
-terraform.tfvars
+# Fichiers Terraform
 .terraform/
 .terraform.lock.hcl
 terraform.tfstate
 terraform.tfstate.backup
+terraform.tfvars
+.terraform.tfstate.lock
+
+# Fichiers Ansible
+*.retry
+*.pid
+ansible.log
+
+# Fichiers généraux
+.vscode/
+.env
+LICENSE.txt
+
+# Autres
+.DS_Store
+*.swp
+*.bak
