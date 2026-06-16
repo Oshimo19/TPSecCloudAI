@@ -1,0 +1,8 @@
+.vscode
+.env
+LICENSE.txt
+terraform.tfvars
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfaste.backup
