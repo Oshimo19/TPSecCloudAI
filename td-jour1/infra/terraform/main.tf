@@ -1,8 +1,8 @@
 # Terraform main.tf - Bastion + Web (Ubuntu 24.04)
-# VPC existant : vpc-0ebcdb39f7a526ef9
+# VPC cible : vpc-0ebcdb39f7a526ef9
 
 # --------------------------------------------------------
-# 1. Subnets : Public, Public2 (ALB), Prive
+# 1. Subnets : Public
 # --------------------------------------------------------
 
 resource "aws_subnet" "test_wxm_subnets" {
@@ -46,218 +46,31 @@ resource "aws_route_table" "test_wxm_public_rt" {
 }
 
 resource "aws_route_table_association" "test_wxm_public_assoc" {
-  subnet_id      = aws_subnet.test_wxm_subnets["public"].id
+  for_each       = var.subnets_cidr_block
+  subnet_id      = aws_subnet.test_wxm_subnets[each.key].id
   route_table_id = aws_route_table.test_wxm_public_rt.id
 }
 
-resource "aws_route_table_association" "test_wxm_public2_assoc" {
-  subnet_id      = aws_subnet.test_wxm_subnets["public2"].id
-  route_table_id = aws_route_table.test_wxm_public_rt.id
-}
 
 # --------------------------------------------------------
-# 4. NAT Gateway -> subnet prive vers Internet
-# --------------------------------------------------------
-
-resource "aws_eip" "test_wxm_nat_eip" {
-  domain = "vpc"
-
-  tags = {
-    Name = "test_wxm-nat-eip"
-  }
-}
-
-resource "aws_nat_gateway" "test_wxm_nat" {
-  allocation_id = aws_eip.test_wxm_nat_eip.id
-  subnet_id     = aws_subnet.test_wxm_subnets["public"].id
-
-  tags = {
-    Name = "test_wxm-nat"
-  }
-}
-
-# --------------------------------------------------------
-# 5. Route Table privee -> NAT Gateway
-# --------------------------------------------------------
-
-resource "aws_route_table" "test_wxm_private_rt" {
-  vpc_id = var.vpc_id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.test_wxm_nat.id
-  }
-
-  tags = {
-    Name = "test_wxm-private-rt"
-  }
-}
-
-resource "aws_route_table_association" "test_wxm_private_assoc" {
-  subnet_id      = aws_subnet.test_wxm_subnets["private"].id
-  route_table_id = aws_route_table.test_wxm_private_rt.id
-}
-
-# --------------------------------------------------------
-# 6. NACL -> subnet public
-# --------------------------------------------------------
-
-resource "aws_network_acl" "test_wxm_nacl" {
-  vpc_id     = var.vpc_id
-  subnet_ids = [aws_subnet.test_wxm_subnets["public"].id]
-
-  # -------------------------
-  # INGRESS
-  # -------------------------
-
-  # SSH entrant (depuis Internet)
-  ingress {
-    rule_no    = 100
-    protocol   = "tcp"
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 22
-    to_port    = 22
-  }
-
-  # Réponses ports éphémères (depuis Internet)
-  ingress {
-    rule_no    = 110
-    protocol   = "tcp"
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 1024
-    to_port    = 65535
-  }
-
-  # Ping entrant (ICMP)
-  ingress {
-    rule_no    = 130
-    protocol   = "icmp"
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    icmp_type  = -1
-    icmp_code  = -1
-    from_port  = 0
-    to_port    = 0
-  }
-
-  # HTTP entrant
-  ingress {
-    rule_no    = 140
-    protocol   = "tcp"
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 80
-    to_port    = 80
-  }
-
-  # HTTPS entrant
-  ingress {
-    rule_no    = 150
-    protocol   = "tcp"
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 443
-    to_port    = 443
-  }
-
-  # Réponses SSH depuis subnet privé (ports éphémères)
-  ingress {
-    rule_no    = 160
-    protocol   = "tcp"
-    action     = "allow"
-    cidr_block = "172.31.60.0/24"
-    from_port  = 1024
-    to_port    = 65535
-  }
-
-  # -------------------------
-  # EGRESS
-  # -------------------------
-
-  # HTTP sortant
-  egress {
-    rule_no    = 200
-    protocol   = "tcp"
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 80
-    to_port    = 80
-  }
-
-  # HTTPS sortant
-  egress {
-    rule_no    = 210
-    protocol   = "tcp"
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 443
-    to_port    = 443
-  }
-
-  # DNS sortant UDP
-  egress {
-    rule_no    = 220
-    protocol   = "udp"
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 53
-    to_port    = 53
-  }
-
-  # DNS sortant TCP
-  egress {
-    rule_no    = 221
-    protocol   = "tcp"
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 53
-    to_port    = 53
-  }
-
-  # Ports éphémères sortants (vers Internet)
-  egress {
-    rule_no    = 230
-    protocol   = "tcp"
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 1024
-    to_port    = 65535
-  }
-
-  # SSH sortant vers subnet privé
-  egress {
-    rule_no    = 240
-    protocol   = "tcp"
-    action     = "allow"
-    cidr_block = "172.31.60.0/24"
-    from_port  = 22
-    to_port    = 22
-  }
-
-  tags = {
-    Name = "test_wxm-nacl"
-  }
-}
-
-# --------------------------------------------------------
-# 7. Security Group Bastion
+# 4. Security Group Bastion (SSH depuis votre IP uniquement)
 # --------------------------------------------------------
 
 resource "aws_security_group" "test_wxm_sg_bastion" {
-  name   = "test_wxm-sg-bastion"
-  vpc_id = var.vpc_id
+  name        = "test_wxm-sg-bastion"
+  description = "SSH entrant depuis mon IP uniquement"
+  vpc_id      = var.vpc_id
 
-  # Entrée SSH
+  # Entree : SSH depuis mon IP
   ingress {
+    description = "SSH depuis mon IP"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.my_ip]
   }
 
-  # Sortie : tout autorisé
+  # Sortie : tout autorise
   egress {
     from_port   = 0
     to_port     = 0
@@ -271,67 +84,33 @@ resource "aws_security_group" "test_wxm_sg_bastion" {
 }
 
 # --------------------------------------------------------
-# 8. Security Group ALB
+# 5. Security Group Cible (SSH + ICMP depuis bastion uniquement)
 # --------------------------------------------------------
 
-resource "aws_security_group" "test_wxm_sg_alb" {
-  name   = "test_wxm-sg-alb"
-  vpc_id = var.vpc_id
+resource "aws_security_group" "test_wxm_sg_cible" {
+  name        = "test_wxm-sg-cible"
+  description = "SSH et ICMP depuis le bastion uniquement"
+  vpc_id      = var.vpc_id
 
-  # Entrée HTTP
+  # Entree : SSH depuis Bastion
   ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Entrée HTTPS
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Sortie : tout autorisé
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "test_wxm-sg-alb"
-  }
-}
-
-# --------------------------------------------------------
-# 9. Security Group Web
-# --------------------------------------------------------
-
-resource "aws_security_group" "test_wxm_sg_web" {
-  name   = "test_wxm-sg-web"
-  vpc_id = var.vpc_id
-
-  # Entrée HTTP depuis ALB uniquement
-  ingress {
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
-    security_groups = [aws_security_group.test_wxm_sg_alb.id]
-  }
-
-  # Entrée SSH depuis Bastion
-  ingress {
+    description     = "SSH depuis bastion"
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
     security_groups = [aws_security_group.test_wxm_sg_bastion.id]
   }
 
-  # Sortie : tout autorisé
+  # Entree : ICMP depuis Bastion
+  ingress {
+    description     = "ICMP depuis bastion"
+    from_port       = -1
+    to_port         = -1
+    protocol        = "icmp"
+    security_groups = [aws_security_group.test_wxm_sg_bastion.id]
+  }
+
+  # Sortie : tout autorise
   egress {
     from_port   = 0
     to_port     = 0
@@ -340,12 +119,119 @@ resource "aws_security_group" "test_wxm_sg_web" {
   }
 
   tags = {
-    Name = "test_wxm-sg-web"
+    Name = "test_wxm-sg-cible"
   }
 }
 
 # --------------------------------------------------------
-# 10. Cle SSH Bastion et Web
+# 6. NACL publique (bastion + cible)
+# --------------------------------------------------------
+
+resource "aws_network_acl" "test_wxm_nacl" {
+  vpc_id = var.vpc_id
+  subnet_ids = [
+    for subnet in aws_subnet.test_wxm_subnets : subnet.id
+  ]
+
+  # -------------------------
+  # INGRESS
+  # -------------------------
+
+  # SSH entrant
+  ingress {
+    rule_no    = 100
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 22
+    to_port    = 22
+  }
+
+  # ICMP entrant (ping)
+  ingress {
+    rule_no    = 120
+    protocol   = "icmp"
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    icmp_type  = -1
+    icmp_code  = -1
+    from_port  = 0
+    to_port    = 0
+  }
+
+  # Ports éphémères entrants (réponses apt, SSH, etc.)
+  ingress {
+    rule_no    = 130
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 1024
+    to_port    = 65535
+  }
+
+  # -------------------------
+  # EGRESS
+  # -------------------------
+
+  # HTTP sortant (apt install)
+  egress {
+    rule_no    = 100
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 80
+    to_port    = 80
+  }
+
+  # HTTPS sortant (apt install)
+  egress {
+    rule_no    = 110
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 443
+    to_port    = 443
+  }
+
+  # SSH sortant (bastion -> cible)
+  egress {
+    rule_no    = 120
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 22
+    to_port    = 22
+  }
+
+  # ICMP sortant (ping depuis bastion)
+  egress {
+    rule_no    = 130
+    protocol   = "icmp"
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    icmp_type  = -1
+    icmp_code  = -1
+    from_port  = 0
+    to_port    = 0
+  }
+
+  # Ports éphémères sortants (réponses SSH vers client)
+  egress {
+    rule_no    = 140
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 1024
+    to_port    = 65535
+  }
+
+  tags = {
+    Name = "test_wxm-nacl"
+  }
+}
+
+# --------------------------------------------------------
+# 7. Cles SSH
 # --------------------------------------------------------
 
 resource "aws_key_pair" "test_wxm_bastion_key" {
@@ -353,13 +239,13 @@ resource "aws_key_pair" "test_wxm_bastion_key" {
   public_key = var.ssh_keys["td-j1-key-bastion"]
 }
 
-resource "aws_key_pair" "test_wxm_web_key" {
-  key_name   = "test_wxm-key-web"
+resource "aws_key_pair" "test_wxm_cible_key" {
+  key_name   = "test_wxm-key-cible"
   public_key = var.ssh_keys["td-j1-key-web"]
 }
 
 # --------------------------------------------------------
-# 11. Instance EC2 Bastion
+# 8. Instance EC2 Bastion (IP publique)
 # --------------------------------------------------------
 
 resource "aws_instance" "test_wxm_bastion" {
@@ -384,16 +270,16 @@ resource "aws_instance" "test_wxm_bastion" {
 }
 
 # --------------------------------------------------------
-# 12. Instance EC2 Web (subnet prive)
+# 9. Instance EC2 Cible (sans IP publique)
 # --------------------------------------------------------
 
-resource "aws_instance" "test_wxm_web" {
+resource "aws_instance" "test_wxm_cible" {
   ami                         = var.ami_id
   instance_type               = var.instance_type
-  subnet_id                   = aws_subnet.test_wxm_subnets["private"].id
-  key_name                    = aws_key_pair.test_wxm_web_key.key_name
+  subnet_id                   = aws_subnet.test_wxm_subnets["public"].id
+  key_name                    = aws_key_pair.test_wxm_cible_key.key_name
   associate_public_ip_address = false
-  vpc_security_group_ids      = [aws_security_group.test_wxm_sg_web.id]
+  vpc_security_group_ids      = [aws_security_group.test_wxm_sg_cible.id]
 
   root_block_device {
     volume_size           = 20
@@ -401,65 +287,9 @@ resource "aws_instance" "test_wxm_web" {
     delete_on_termination = true
   }
 
-  depends_on = [aws_nat_gateway.test_wxm_nat]
+  depends_on = [aws_route_table_association.test_wxm_public_assoc]
 
   tags = {
-    Name = "test_wxm-web"
-  }
-}
-
-# --------------------------------------------------------
-# 13. Application Load Balancer
-# --------------------------------------------------------
-
-resource "aws_lb" "test_wxm_alb" {
-  name               = "test-wxm-alb"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.test_wxm_sg_alb.id]
-  subnets = [
-    aws_subnet.test_wxm_subnets["public"].id,
-    aws_subnet.test_wxm_subnets["public2"].id
-  ]
-
-  tags = {
-    Name = "test_wxm-alb"
-  }
-}
-
-# Target Group -> instance web port 80
-resource "aws_lb_target_group" "test_wxm_tg" {
-  name     = "test-wxm-tg"
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = var.vpc_id
-
-  health_check {
-    path                = "/"
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-  }
-
-  tags = {
-    Name = "test_wxm-tg"
-  }
-}
-
-# Attachement instance web au target group
-resource "aws_lb_target_group_attachment" "test_wxm_tg_attachment" {
-  target_group_arn = aws_lb_target_group.test_wxm_tg.arn
-  target_id        = aws_instance.test_wxm_web.id
-  port             = 80
-}
-
-# Listener HTTP -> forward vers target group
-resource "aws_lb_listener" "test_wxm_listener_http" {
-  load_balancer_arn = aws_lb.test_wxm_alb.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.test_wxm_tg.arn
+    Name = "test_wxm-cible"
   }
 }
