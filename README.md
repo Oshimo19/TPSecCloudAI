@@ -6,7 +6,7 @@
 
 ---
 
-## Structure
+## Structure du TD Jour 1
 
 ```
 td-jour1/
@@ -39,7 +39,7 @@ td-jour1/
 
 ---
 
-## Prérequis
+## Prérequis pour TD Jour 1
 
 - AWS CLI configuré (`~/.aws/credentials`)
 - Terraform >= 1.0
@@ -48,7 +48,7 @@ td-jour1/
 
 ---
 
-## Utilisation rapide
+## Utilisation rapide de TD Jour 1
 
 ```bash
 # Déployer l'infra
