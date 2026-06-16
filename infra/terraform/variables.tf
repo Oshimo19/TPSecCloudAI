@@ -18,3 +18,16 @@ variable "vm_instance_type" {
   type        = string
   default     = "t2.micro"
 }
+
+
+variable "my_ip" {
+  description = "Adresse IP publique de l'utilisateur"
+  type        = string
+}
+
+
+variable "subnet_cidr_block" {
+  type        = string
+  description = "CIDR du subnet utilisé pour les instances"
+  default     = "172.31.240.0/24"
+}
