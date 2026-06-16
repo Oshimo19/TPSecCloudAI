@@ -1,4 +1,4 @@
-# Terraform main.tf - Bastion uniquement (Ubuntu 24.04)
+# Terraform main.tf - Bastion + Web (Ubuntu 24.04)
 # VPC existant : vpc-0ebcdb39f7a526ef9
 
 # --------------------------------------------------------
@@ -114,6 +114,27 @@ resource "aws_network_acl" "test_wxm_nacl" {
     to_port    = 0
   }
 
+  # HTTP entrant
+  ingress {
+    rule_no    = 140
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 80
+    to_port    = 80
+  }
+
+  # HTTPS entrant 
+  ingress {
+    rule_no    = 150
+  protocol   = "tcp"
+  action     = "allow"
+  cidr_block = "0.0.0.0/0"
+  from_port  = 443
+  to_port    = 443
+}
+
+
   # -------------------------
   # EGRESS
   # -------------------------
@@ -207,16 +228,74 @@ resource "aws_security_group_rule" "test_wxm_bastion_egress_all" {
 }
 
 # --------------------------------------------------------
-# 6. Cle SSH Bastion
+# 6. Security Group Web
+# --------------------------------------------------------
+
+resource "aws_security_group" "test_wxm_sg_web" {
+  name   = "test_wxm-sg-web"
+  vpc_id = var.vpc_id
+
+  tags = {
+    Name = "test_wxm-sg-web"
+  }
+}
+
+# Entrée HTTP 
+resource "aws_security_group_rule" "test_wxm_web_ingress_http" {
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.test_wxm_sg_web.id
+}
+
+# Entrée HTTPS
+resource "aws_security_group_rule" "test_wxm_web_ingress_https" {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.test_wxm_sg_web.id
+}
+
+# Entrée SSH depuis Bastion 
+resource "aws_security_group_rule" "test_wxm_web_ingress_ssh" {
+  type                     = "ingress"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.test_wxm_sg_bastion.id
+  security_group_id        = aws_security_group.test_wxm_sg_web.id
+}
+
+# Sortie : tout autorisé
+resource "aws_security_group_rule" "test_wxm_web_egress_all" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.test_wxm_sg_web.id
+}
+
+# --------------------------------------------------------
+# 7. Cle SSH Bastion et Web
 # --------------------------------------------------------
 
 resource "aws_key_pair" "test_wxm_bastion_key" {
   key_name   = "test_wxm-key-bastion"
-  public_key = var.ssh_keys["tp-key-bastion-2"]
+  public_key = var.ssh_keys["td-j1-key-bastion"]
+}
+
+resource "aws_key_pair" "test_wxm_web_key" {
+  key_name   = "test_wxm-key-web"
+  public_key = var.ssh_keys["td-j1-key-web"]
 }
 
 # --------------------------------------------------------
-# 7. Instance EC2 Bastion
+# 8. Instance EC2 Bastion
 # --------------------------------------------------------
 
 resource "aws_instance" "test_wxm_bastion" {
@@ -237,5 +316,30 @@ resource "aws_instance" "test_wxm_bastion" {
 
   tags = {
     Name = "test_wxm-bastion"
+  }
+}
+
+# --------------------------------------------------------
+# 9. Instance EC2 Web
+# --------------------------------------------------------
+
+resource "aws_instance" "test_wxm_web" {
+  ami                         = var.ami_id
+  instance_type               = var.instance_type
+  subnet_id                   = aws_subnet.test_wxm_subnets["public"].id
+  key_name                    = aws_key_pair.test_wxm_web_key.key_name
+  associate_public_ip_address = true
+  vpc_security_group_ids      = [aws_security_group.test_wxm_sg_web.id]
+
+  root_block_device {
+    volume_size           = 20
+    volume_type           = "gp3"
+    delete_on_termination = true
+  }
+
+  depends_on = [aws_route_table_association.test_wxm_public_assoc]
+
+  tags = {
+    Name = "test_wxm-web"
   }
 }
