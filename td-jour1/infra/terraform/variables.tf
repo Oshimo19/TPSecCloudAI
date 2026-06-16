@@ -1,4 +1,4 @@
-# Terraform variables.tf - TP DevOps AWS Ansible Jenkins 
+# Terraform variables.tf
 # Fichier de declaration des variables utilisees dans cet environnement de travail
 
 variable "region" {
