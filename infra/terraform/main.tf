@@ -110,7 +110,7 @@ resource "aws_network_acl" "test_wxm_nacl" {
   # INGRESS
   # -------------------------
 
-  # SSH entrant
+  # SSH entrant (depuis Internet)
   ingress {
     rule_no    = 100
     protocol   = "tcp"
@@ -120,7 +120,7 @@ resource "aws_network_acl" "test_wxm_nacl" {
     to_port    = 22
   }
 
-  # Réponses HTTP/HTTPS (ports éphémères TCP)
+  # Réponses ports éphémères (depuis Internet)
   ingress {
     rule_no    = 110
     protocol   = "tcp"
@@ -160,6 +160,16 @@ resource "aws_network_acl" "test_wxm_nacl" {
     cidr_block = "0.0.0.0/0"
     from_port  = 443
     to_port    = 443
+  }
+
+  # Réponses SSH depuis subnet privé (ports éphémères)
+  ingress {
+    rule_no    = 160
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = "172.31.60.0/24"
+    from_port  = 1024
+    to_port    = 65535
   }
 
   # -------------------------
@@ -206,7 +216,7 @@ resource "aws_network_acl" "test_wxm_nacl" {
     to_port    = 53
   }
 
-  # Ports éphémères sortants
+  # Ports éphémères sortants (vers Internet)
   egress {
     rule_no    = 230
     protocol   = "tcp"
@@ -214,6 +224,16 @@ resource "aws_network_acl" "test_wxm_nacl" {
     cidr_block = "0.0.0.0/0"
     from_port  = 1024
     to_port    = 65535
+  }
+
+  # SSH sortant vers subnet privé
+  egress {
+    rule_no    = 240
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = "172.31.60.0/24"
+    from_port  = 22
+    to_port    = 22
   }
 
   tags = {
@@ -226,32 +246,28 @@ resource "aws_network_acl" "test_wxm_nacl" {
 # --------------------------------------------------------
 
 resource "aws_security_group" "test_wxm_sg_bastion" {
-  name   = "test_wxm-sg"
+  name   = "test_wxm-sg-bastion"
   vpc_id = var.vpc_id
 
-  tags = {
-    Name = "test_wxm-sg"
+  # Entrée SSH
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
-}
 
-# Entrée SSH
-resource "aws_security_group_rule" "test_wxm_bastion_ingress_ssh" {
-  type              = "ingress"
-  from_port         = 22
-  to_port           = 22
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.test_wxm_sg_bastion.id
-}
+  # Sortie : tout autorisé
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
-# Sortie : tout autorisé
-resource "aws_security_group_rule" "test_wxm_bastion_egress_all" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.test_wxm_sg_bastion.id
+  tags = {
+    Name = "test_wxm-sg-bastion"
+  }
 }
 
 # --------------------------------------------------------
@@ -262,39 +278,33 @@ resource "aws_security_group" "test_wxm_sg_alb" {
   name   = "test_wxm-sg-alb"
   vpc_id = var.vpc_id
 
+  # Entrée HTTP
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Entrée HTTPS
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Sortie : tout autorisé
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   tags = {
     Name = "test_wxm-sg-alb"
   }
-}
-
-# Entrée HTTP
-resource "aws_security_group_rule" "test_wxm_alb_ingress_http" {
-  type              = "ingress"
-  from_port         = 80
-  to_port           = 80
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.test_wxm_sg_alb.id
-}
-
-# Entrée HTTPS
-resource "aws_security_group_rule" "test_wxm_alb_ingress_https" {
-  type              = "ingress"
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.test_wxm_sg_alb.id
-}
-
-# Sortie : tout autorisé
-resource "aws_security_group_rule" "test_wxm_alb_egress_all" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.test_wxm_sg_alb.id
 }
 
 # --------------------------------------------------------
@@ -305,39 +315,33 @@ resource "aws_security_group" "test_wxm_sg_web" {
   name   = "test_wxm-sg-web"
   vpc_id = var.vpc_id
 
+  # Entrée HTTP depuis ALB uniquement
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.test_wxm_sg_alb.id]
+  }
+
+  # Entrée SSH depuis Bastion
+  ingress {
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.test_wxm_sg_bastion.id]
+  }
+
+  # Sortie : tout autorisé
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   tags = {
     Name = "test_wxm-sg-web"
   }
-}
-
-# Entrée HTTP depuis ALB uniquement
-resource "aws_security_group_rule" "test_wxm_web_ingress_http" {
-  type                     = "ingress"
-  from_port                = 80
-  to_port                  = 80
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.test_wxm_sg_alb.id
-  security_group_id        = aws_security_group.test_wxm_sg_web.id
-}
-
-# Entrée SSH depuis Bastion
-resource "aws_security_group_rule" "test_wxm_web_ingress_ssh" {
-  type                     = "ingress"
-  from_port                = 22
-  to_port                  = 22
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.test_wxm_sg_bastion.id
-  security_group_id        = aws_security_group.test_wxm_sg_web.id
-}
-
-# Sortie : tout autorisé
-resource "aws_security_group_rule" "test_wxm_web_egress_all" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.test_wxm_sg_web.id
 }
 
 # --------------------------------------------------------
