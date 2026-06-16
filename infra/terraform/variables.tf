@@ -19,3 +19,14 @@ variable "vm_instance_type" {
   description = "Type d'instance EC2"
   default     = "t2.micro"
 }
+
+variable "my_ip" {
+  type        = string
+  description = "Adresse IP publique autorisée en SSH, format x.x.x.x/32"
+}
+
+variable "subnet_cidr_block" {
+  type        = string
+  description = "CIDR du subnet utilisé pour les instances"
+  default     = "172.31.120.0/24"
+}
