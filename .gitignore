@@ -1,0 +1,62 @@
+# ========================
+# TERRAFORM
+# ========================
+terraform.tfvars
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# ========================
+# ANSIBLE
+# ========================
+*.retry
+.vault_pass
+vault_pass.txt
+*.vault
+inventory/host_vars/
+inventory/group_vars/secrets/
+.ansible/
+ansible.log
+*.log
+
+# ========================
+# GENERAL
+# ========================
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Variables d'environnement
+.env
+.env.*
+*.env
+
+# Clés SSH / Certificats
+*.pem
+*.key
+*.crt
+*.p12
+id_rsa
+id_rsa.pub
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Editeurs
+.vscode/
+.idea/
+*.iml
