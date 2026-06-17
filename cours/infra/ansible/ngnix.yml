@@ -1,0 +1,21 @@
+---
+- name: Install of Engine-X
+  hosts: web
+  become: true
+  tasks:
+    - name: Install nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: true
+
+    - name: Start nginx
+      service:
+        name: nginx
+        state: started
+        enabled: true
+
+    - name: Update Landing Page
+      copy:
+        content: "<html><body><h1>hello</h1></body></html>"
+        dest: /var/www/html/index.html
