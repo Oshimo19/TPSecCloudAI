@@ -21,13 +21,6 @@ tr_plan: tr_lint ## plan terraform
 tr_apply: tr_plan ## apply terraform
 	@cd $(TF_DIR) && terraform apply
 
-tr_output: ## genere inventory.ini depuis les outputs terraform
-	@echo "[web]" > $(ANSIBLE_DIR)/inventory.ini
-	@echo "$$(terraform -chdir=$(TF_DIR) output -raw web_public_ip) ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/td-j3-key-web" >> $(ANSIBLE_DIR)/inventory.ini
-	@echo "" >> $(ANSIBLE_DIR)/inventory.ini
-	@echo "[app]" >> $(ANSIBLE_DIR)/inventory.ini
-	@echo "$$(terraform -chdir=$(TF_DIR) output -raw app_private_ip) ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/td-j3-key-app ansible_ssh_common_args='-o ProxyJump=\"ec2-user@$$(terraform -chdir=$(TF_DIR) output -raw web_public_ip)\" -o StrictHostKeyChecking=accept-new'" >> $(ANSIBLE_DIR)/inventory.ini
-
 known_hosts: ## ajoute les cles SSH des hotes dans known_hosts
 	@ssh-keyscan -H $$(terraform -chdir=$(TF_DIR) output -raw web_public_ip) >> ~/.ssh/known_hosts 2>/dev/null || true
 	@ssh-keyscan -H $$(terraform -chdir=$(TF_DIR) output -raw app_private_ip) >> ~/.ssh/known_hosts 2>/dev/null || true
