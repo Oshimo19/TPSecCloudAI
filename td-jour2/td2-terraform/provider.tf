@@ -1,4 +1,4 @@
-# Terraform provider.tf - TP DevOps AWS Ansible Jenkins 
+# Terraform provider.tf
 # Fichier provider AWS
 
 terraform {

@@ -1,5 +1,4 @@
 # Terraform keys.tf
-# ...
 
 resource "aws_key_pair" "bastion" {
   key_name   = "${local.prefix}-key-bastion"
