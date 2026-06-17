@@ -135,17 +135,6 @@ td-jour2/
 └── docs.md
 ```
 
-> Si on utilise Git, ajouter immédiatement `terraform.tfvars` et `*.tfstate*` au `.gitignore`.
-
-```bash
-cat <<'EOF' > .gitignore
-terraform.tfvars
-*.tfstate
-*.tfstate.backup
-.terraform/
-EOF
-```
-
 ---
 
 ## 2. Le socle Terraform : provider et VPC par défaut
@@ -167,7 +156,7 @@ td2-terraform/
 ### 2.2 Initialisation du provider
 
 ```bash
-terraform init
+make tf_init
 ```
 
 Sortie obtenue :
@@ -209,42 +198,8 @@ locals {
   prefix = "td2-${var.student_id}"
 }
 ```
-
-**`variables.tf`** — ajouter la variable de description des subnets :
-
-```hcl
-variable "subnets_cidr_block" {
-  description = "Map des subnets a creer"
-  type = map(object({
-    cidr   = string
-    az     = string
-    public = bool
-  }))
-  default = {
-    "public-a" = {
-      cidr   = "172.31.55.0/24"
-      az     = "eu-west-3a"
-      public = true
-    }
-  }
-}
-```
-
-**`network.tf`** — nouveau fichier, création du subnet avec `for_each` :
-
-```hcl
-resource "aws_subnet" "td2_subnets" {
-  for_each                = var.subnets_cidr_block
-  vpc_id                  = data.aws_vpc.default.id
-  cidr_block              = each.value.cidr
-  availability_zone       = each.value.az
-  map_public_ip_on_launch = each.value.public
-
-  tags = {
-    Name = "${local.prefix}-subnet-${each.key}"
-  }
-}
-```
+**`variables.tf`** — ajouter la variable de description des subnets
+**`network.tf`** — fichier qui permet la création du subnet avec `for_each`
 
 > L'utilisation de `for_each` sur une map permet d'ajouter facilement d'autres subnets (privés, autres AZ) en modifiant uniquement la variable, sans toucher au code de la ressource.
 
@@ -261,7 +216,7 @@ aws ec2 describe-subnets \
 Lancer la prévisualisation :
 
 ```bash
-terraform plan
+make tf_plan
 ```
 
 Sortie attendue :
@@ -336,7 +291,7 @@ Plus d'info dans [./td2-terraform/bastion.tf](./td2-terraform/bastion.tf)
 ### 3.2 Déploiement
 
 ```bash
-terraform apply
+make tf_apply
 ```
 
 > Taper `yes` pour confirmer.
@@ -366,7 +321,7 @@ ssh -i ~/.ssh/td-j2-key-bastion ec2-user@$(terraform output -raw bastion_ip)
 
 > **La commande `terraform output` doit être exécutée depuis le dossier `td2-terraform/`** où se trouve le fichier `terraform.tfstate`. Si elle est lancée depuis un dossier parent, Terraform ne trouve pas d'état et retourne une erreur `No address associated with hostname`. Vérifier toujours le répertoire courant avec `pwd` avant d'exécuter `terraform output`.
 
-On peut aussi passer l'IP directement :
+On peut aussi passer l'IP directement, par exemple :
 
 ```bash
 ssh -i ~/.ssh/td-j2-key-bastion ec2-user@51.44.163.74
@@ -445,8 +400,7 @@ Plus d'info dans [./td2-terraform/egress.tf](./td2-terraform/egress.tf)
 ### 4.2 Déploiement
 
 ```bash
-cd td2-terraform
-terraform apply
+make tf_apply
 ```
 
 **Sortie attendue :**
@@ -468,6 +422,7 @@ private_ip = "172.31.142.13"
 eval $(ssh-agent)
 ssh-add ~/.ssh/td-j2-key-bastion
 ssh-add ~/.ssh/td-j2-key-private
+ssh-add ~/.ssh/td-j2-key-sonde
 ```
 
 > L'agent forwarding permet de rebondir sur l'instance privée **sans copier la clé privée sur le bastion** — bonne pratique de sécurité.
@@ -491,7 +446,7 @@ ssh ec2-user@172.31.142.13
 curl -s https://checkip.amazonaws.com
 ```
 
-**Résultat obtenu :**
+**Exemple de résultat obtenu :**
 ```
 15.188.247.119   ← IP publique de la NAT Gateway, pas de l'instance
 ```
@@ -547,11 +502,10 @@ subnet privé → NAT Gateway (subnet public) → Internet Gateway → Internet
 ### 5.1 Déploiement
 
 ```bash
-cd ~/secCloudArchInter/TPSecCloudAI/td-jour2/td2-terraform
-terraform apply
+make tf_apply
 ```
 
-**Sortie attendue :**
+**Sortie :**
 ```
 Apply complete! Resources: X added, 0 changed, 0 destroyed.
 
@@ -573,7 +527,7 @@ sonde_private_ip = "172.31.55.31"
 ssh -i ~/.ssh/td-j2-key-bastion \
   -o ProxyJump="ec2-user@$(terraform output -raw bastion_ip)" \
   ubuntu@$(terraform output -raw sonde_private_ip) \
-  "sudo systemctl status suricata --no-pager"
+  "sudo systemctl status suricata"
 ```
 
 **Vérifier que la règle TD2 est bien chargée :**
@@ -585,7 +539,7 @@ ssh -i ~/.ssh/td-j2-key-bastion \
   "grep 'TD2' /var/lib/suricata/rules/suricata.rules"
 ```
 
-**Sortie attendue :**
+**Exemple de sortie attendue :**
 ```
 alert icmp any any -> $HOME_NET any (msg:"TD2 ICMP detecte"; sid:1000001; rev:1;)
 ```
@@ -619,7 +573,7 @@ ssh -i ~/.ssh/td-j2-key-bastion ec2-user@$(terraform output -raw bastion_ip) \
   "ping -c 5 $(terraform output -raw sonde_private_ip)"
 ```
 
-**Sortie attendue dans le Terminal 1 :**
+**Exemple de sortie dans le Terminal 1 :**
 ```json
 {"timestamp":"2026-06-17T15:XX:XX...","event_type":"alert","src_ip":"172.31.55.233",
 "dest_ip":"172.31.55.31","proto":"ICMP","alert":{"msg":"TD2 ICMP detecte","sid":1000001}}
@@ -669,15 +623,14 @@ Pour passer en IPS sur AWS, il faudrait configurer la sonde comme **inline** ent
 ### 6.1 Lancer la destruction
 
 ```bash
-cd td2-terraform
-terraform destroy
+make clean
 ```
 
 Taper `yes` pour confirmer. Terraform liste et supprime dans l'ordre correct : instances, NAT Gateway, EIP, sous-réseau, route table, security groups.
 
-**Sortie attendue :**
+**Exemple de sortie obtenue :**
 ```
-Destroy complete! Resources: X destroyed.
+Destroy complete! Resources: 12 destroyed.
 ```
 
 > Le VPC par défaut, ses subnets par défaut et son Internet Gateway ne sont pas touchés — ce sont des `data sources`, ils n'apparaissent pas dans le state.
