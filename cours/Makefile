@@ -24,7 +24,7 @@ tr_apply: tr_plan ## apply terraform
 
 tr_output: ## outputs ip into ansible inventory
 	@echo "[web]" > $(ANSIBLE_DIR)/inventory.ini
-	@terraform -chdir=$(TF_DIR) output test_wxm_bastion_public_ip | tr -d '"' | xargs -I{} echo "{} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/td-j1-key-bastion" >> $(ANSIBLE_DIR)/inventory.ini
+	@echo "$$(terraform -chdir=$(TF_DIR) output -raw test_wxm_bastion_public_ip) ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/td-j1-key-bastion" >> $(ANSIBLE_DIR)/inventory.ini
 
 known_hosts: ## add web host key to known_hosts
 	@ssh-keyscan -H $$(terraform -chdir=$(TF_DIR) output -raw test_wxm_bastion_public_ip) >> ~/.ssh/known_hosts 2>/dev/null || true
