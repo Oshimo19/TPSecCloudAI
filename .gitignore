@@ -4,10 +4,10 @@
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
-.terraform.lock.hcl
 
 # Ansible
 **/inventory.ini
+!**/inventory.ini.example
 
 # SSH keys
 *.pem
