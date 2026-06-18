@@ -21,6 +21,9 @@ tr_plan: tr_lint ## plan terraform
 tr_apply: tr_plan ## apply terraform
 	@cd $(TF_DIR) && terraform apply
 
+tr_output: ## genere inventory.ini depuis les outputs terraform
+	@terraform -chdir=$(TF_DIR) output -raw inventory_ini > $(ANSIBLE_DIR)/inventory.ini
+
 known_hosts: ## ajoute les cles SSH des hotes dans known_hosts
 	@ssh-keyscan -H $$(terraform -chdir=$(TF_DIR) output -raw web_public_ip) >> ~/.ssh/known_hosts 2>/dev/null || true
 	@ssh-keyscan -H $$(terraform -chdir=$(TF_DIR) output -raw app_private_ip) >> ~/.ssh/known_hosts 2>/dev/null || true

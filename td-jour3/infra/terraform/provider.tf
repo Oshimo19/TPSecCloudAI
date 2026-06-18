@@ -16,5 +16,5 @@ terraform {
 
 # 3) Parametrage du provider AWS
 provider "aws" {
-  region = var.region
+  region = var.aws_region
 }
