@@ -7,6 +7,12 @@ variable "aws_region" {
   default     = "eu-west-3"
 }
 
+variable "vpc_id" {
+  description = "ID du VPC cible (eu-west-3)"
+  type        = string
+  default     = "vpc-0ebcdb39f7a526ef9"
+}
+
 variable "student_id" {
   description = "Numero d etudiant (0-99) : noms et CIDR uniques"
   type        = number
@@ -15,48 +21,37 @@ variable "student_id" {
 variable "my_ip" {
   description = "IP publique en /32 pour restreindre l'accès SSH"
   type        = string
-  sensitive   = false
-}
-
-# --- Donnees du VPC ---
-variable "vpc_cidr" {
-  description = "CIDR du VPC"
-  default     = "10.172.0.0/16"
+  sensitive   = true
 }
 
 variable "azs" {
-  description = "Zones de disponibilité"
+  description = "Zones de disponibilite"
   type        = list(string)
   default     = ["eu-west-3a", "eu-west-3b"]
 }
 
-# --- CIDR des subnets (8 subnets, 4 paires sur 2 AZ) ---
+# --- CIDR des subnets (VPC existant 172.31.0.0/16) ---
+# 172.31.0.0/20, 16.0/20, 32.0/20 = subnets par defaut AWS
+# 172.31.101/102.0/24 = deja utilises par rds-only
 variable "public_subnet_cidrs" {
-  description = "CIDR des subnets publics"
+  description = "CIDR des subnets publics (NAT + ALB public)"
   type        = list(string)
-  default     = ["10.172.0.0/24", "10.172.1.0/24"]
+  default     = ["172.31.48.0/24", "172.31.49.0/24"]
 }
 
 variable "web_subnet_cidrs" {
-  description = "CIDR des subnets web (privés)"
+  description = "CIDR des subnets web (prives)"
   type        = list(string)
-  default     = ["10.172.10.0/24", "10.172.11.0/24"]
+  default     = ["172.31.64.0/24", "172.31.65.0/24"]
 }
 
 variable "app_subnet_cidrs" {
-  description = "CIDR des subnets app (privés)"
+  description = "CIDR des subnets app (prives)"
   type        = list(string)
-  default     = ["10.172.20.0/24", "10.172.21.0/24"]
+  default     = ["172.31.96.0/24", "172.31.97.0/24"]
 }
 
-variable "data_subnet_cidrs" {
-  description = "CIDR des subnets data/RDS (privés)"
-  type        = list(string)
-  default     = ["10.172.30.0/24", "10.172.31.0/24"]
-}
-
-
-# --- Données pour les instances EC2 ---
+# --- Donnees pour les instances EC2 ---
 variable "instance_type" {
   description = "Type d'instance EC2"
   type        = string
@@ -75,19 +70,39 @@ variable "ssh_user" {
   default     = "ubuntu"
 }
 
-# --- Données de la base RDS ---
-variable "db_username" {
-  description = "Nom d'utilisateur RDS"
-  default     = "appuser"
+# --- Identifiants RDS ---
+variable "db_secret_name" {
+  description = "Nom du secret dans Secrets Manager"
+  type        = string
+  default     = "td-ipssi-rds-v2/password"
 }
+
+variable "db_name" {
+  description = "Nom de la base PostgreSQL"
+  type        = string
+  default     = "td_ipssi"
+}
+
+variable "db_username" {
+  description = "Nom d'utilisateur PostgreSQL"
+  type        = string
+  default     = "postgres"
+}
+
 variable "db_password" {
-  description = "Mot de passe RDS"
+  description = "Mot de passe PostgreSQL"
   type        = string
   sensitive   = true
 }
 
-variable "db_name" {
-  description = "Nom de la base RDS"
+variable "rds_instance_identifier" {
+  description = "Identifier de l'instance RDS existante (créée par rds-only)"
   type        = string
-  default     = "signupdb"
+  default     = "td-ipssi-rds-v2"
+}
+
+variable "pepper" {
+  description = "Poivre global pour le hachage HMAC-Argon2 (doit rester identique à vie)"
+  type        = string
+  sensitive   = true
 }

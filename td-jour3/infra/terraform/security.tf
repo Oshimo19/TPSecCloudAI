@@ -5,7 +5,7 @@
 resource "aws_security_group" "sg_alb_public" {
   name        = "${local.prefix}-sg-alb-public"
   description = "ALB public - HTTP depuis Internet"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.aws_vpc.main.id
 
   ingress {
     description = "HTTP depuis Internet"
@@ -31,7 +31,7 @@ resource "aws_security_group" "sg_alb_public" {
 resource "aws_security_group" "sg_web" {
   name        = "${local.prefix}-sg-web"
   description = "Web tier - HTTP depuis ALB public + SSH administrateur"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.aws_vpc.main.id
 
   ingress {
     description     = "HTTP depuis ALB public uniquement"
@@ -65,7 +65,7 @@ resource "aws_security_group" "sg_web" {
 resource "aws_security_group" "sg_alb_internal" {
   name        = "${local.prefix}-sg-alb-internal"
   description = "ALB interne - HTTP depuis Web tier"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.aws_vpc.main.id
 
   ingress {
     description     = "HTTP depuis Web tier"
@@ -91,7 +91,7 @@ resource "aws_security_group" "sg_alb_internal" {
 resource "aws_security_group" "sg_app" {
   name        = "${local.prefix}-sg-app"
   description = "App tier - HTTP depuis ALB interne + SSH depuis Web"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.aws_vpc.main.id
 
   ingress {
     description     = "HTTP depuis ALB interne"
@@ -121,21 +121,18 @@ resource "aws_security_group" "sg_app" {
   }
 }
 
-# --- RDS / Data Tier (App → PostgreSQL) ---
-resource "aws_security_group" "sg_rds" {
-  name        = "${local.prefix}-sg-rds"
-  description = "RDS PostgreSQL - depuis App tier uniquement"
-  vpc_id      = aws_vpc.main.id
+# --- SG RDS existant (créé par rds-only) ---
+data "aws_security_group" "rds_existing" {
+  name = "td-ipssi-rds-v2-sg"
+}
 
-  ingress {
-    description     = "PostgreSQL depuis App tier"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.sg_app.id]
-  }
-
-  tags = {
-    Name = "${local.prefix}-sg-rds"
-  }
+# --- Règle : App tier → RDS (5432) ---
+resource "aws_security_group_rule" "app_to_rds" {
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.sg_app.id
+  security_group_id        = data.aws_security_group.rds_existing.id
+  description              = "PostgreSQL depuis App tier"
 }

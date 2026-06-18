@@ -10,6 +10,7 @@ import hmac
 import hashlib
 import psycopg2
 from argon2 import PasswordHasher
+from psycopg2.errors import UniqueViolation # verfier si une email est deja pris 
 from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
@@ -106,20 +107,34 @@ def verify_password(stored_hash: str, password: str) -> bool:
 # ─── Insertion BDD ───
 
 def insert_user(email: str, password_hash: str, full_name: str) -> dict:
-    """Insère un utilisateur. Retourne {"ok": True, "id": ...} ou {"ok": False, ...}"""
-    conn = psycopg2.connect(**DB_CONFIG)
-    with conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO users (email, password_hash, full_name)
-                VALUES (%s, %s, %s)
-                RETURNING id
-                """,
-                (email, password_hash, full_name)
-            )
-            user_id = cur.fetchone()[0]
-    return {"ok": True, "id": user_id}
+    """
+    Insère un utilisateur.
+    Retourne {"ok": True, "id": ...} ou {"ok": False, "reason": "duplicate"|"error"}
+    """
+    conn = None
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO users (email, password_hash, full_name)
+                    VALUES (%s, %s, %s)
+                    RETURNING id
+                    """,
+                    (email, password_hash, full_name)
+                )
+                user_id = cur.fetchone()[0]
+        return {"ok": True, "id": user_id}
+
+    except UniqueViolation:
+        # Email deja present → erreur
+        return {"ok": False, "reason": "duplicate"}
+    except Exception as e:
+        return {"ok": False, "reason": "error", "message": str(e)}
+    finally:
+        if conn is not None:
+            conn.close()
 
 # ─── Routes ───
 
@@ -133,25 +148,26 @@ def health():
 
 @app.post("/api/signup")
 def signup():
-    """Création d'un compte utilisateur"""
     data      = request.get_json(force=True)
     email     = data.get("email", "").strip().lower()
     password  = data.get("password", "")
     full_name = data.get("full_name", "").strip()
 
-    # Étape 1 : Validation ANSSI
+    # 1. Validation ANSSI
     ok, msg = validate_input(email, password, full_name)
     if not ok:
         return jsonify({"error": msg}), 400
 
-    # Étape 2 : Poivre + Argon2id
+    # 2. Hash (Poivre + Argon2id)
     password_hash = hash_password(password)
 
-    # Étape 3 : Insertion BDD
+    # 3. Insertion BDD
     result = insert_user(email, password_hash, full_name)
+
     if not result["ok"]:
         if result.get("reason") == "duplicate":
             return jsonify({"error": "Email déjà enregistré"}), 409
+        # Pour déboguer en dev, tu peux logger result.get("message")
         return jsonify({"error": "Erreur serveur"}), 503
 
     return jsonify({"status": "created", "id": result["id"]}), 201
