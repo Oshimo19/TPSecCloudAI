@@ -1,0 +1,18 @@
+# Valeurs adaptees a ton environnement AWS existant
+aws_region       = "eu-west-3"
+project_prefix   = "td3-walid"
+owner            = "Walid"
+
+# VPC existant : Terraform ne cree pas de nouveau VPC.
+vpc_id           = "vpc-0ebcdb39f7a526ef9"
+vm_image         = "ami-0e207c18bb303cc68"
+vm_instance_type = "t2.micro"
+my_ip            = "80.214.56.151/32"
+
+# Base RDS creee par ce TD dans le VPC existant.
+db_name          = "signupdb"
+db_username      = "appuser"
+db_password      = "A_REMPLACER_MOT_DE_PASSE_SOLIDE_123!"
+
+# Attention : RDS Multi-AZ coute plus cher mais correspond au TD.
+rds_multi_az     = true

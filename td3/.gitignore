@@ -1,0 +1,21 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+
+# Secrets / keys
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+terraform-ipssi
+terraform-ipssi.pub
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
