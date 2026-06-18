@@ -1,0 +1,13 @@
+[Unit]
+Description=Flask API (app tier)
+After=network.target
+
+[Service]
+User=flask
+WorkingDirectory=/opt/app
+EnvironmentFile=/opt/app/.env
+ExecStart=/usr/bin/python3 /opt/app/app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

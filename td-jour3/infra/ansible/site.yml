@@ -1,0 +1,14 @@
+---
+- name: Provision app tier (Flask API)
+  hosts: app
+  become: true
+  roles:
+    - common
+    - app
+
+- name: Provision web tier (Flask formulaire)
+  hosts: web
+  become: true
+  roles:
+    - common
+    - web

@@ -1,0 +1,46 @@
+---
+- name: Créer le répertoire web
+  file:
+    path: /opt/web
+    state: directory
+    owner: flask
+    group: flask
+
+- name: Copier le code web Flask
+  copy:
+    src: "{{ playbook_dir }}/../terraform/web/web.py"
+    dest: /opt/web/web.py
+    owner: flask
+    group: flask
+
+- name: Copier requirements.txt
+  copy:
+    src: "{{ playbook_dir }}/../terraform/web/requirements.txt"
+    dest: /opt/web/requirements.txt
+
+- name: Installer les dépendances Python
+  pip:
+    requirements: /opt/web/requirements.txt
+    executable: pip3
+
+- name: Déployer le fichier d'environnement
+  template:
+    src: env.j2
+    dest: /opt/web/.env
+    owner: flask
+    group: flask
+    mode: "0600"
+  notify: restart web
+
+- name: Déployer le service systemd
+  template:
+    src: web.service.j2
+    dest: /etc/systemd/system/web.service
+  notify: restart web
+
+- name: Activer et démarrer le service web
+  systemd:
+    name: web
+    enabled: true
+    state: started
+    daemon_reload: true

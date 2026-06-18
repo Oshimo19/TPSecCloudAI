@@ -41,17 +41,13 @@ resource "aws_lb_listener" "public_http" {
 }
 
 resource "aws_instance" "web" {
-  count                  = length(var.azs)
-  ami                    = data.aws_ami.amazon_linux_2023.id
-  instance_type          = "t3.micro"
-  subnet_id              = aws_subnet.web[count.index].id
-  vpc_security_group_ids = [aws_security_group.sg_web.id]
-
-  user_data = templatefile("${path.module}/web/user_data.sh.tpl", {
-    internal_alb_dns = aws_lb.internal.dns_name
-    web_py_b64       = base64encode(file("${path.module}/web/web.py"))
-    requirements_b64 = base64encode(file("${path.module}/web/requirements.txt"))
-  })
+  count                       = length(var.azs)
+  ami                         = data.aws_ami.amazon_linux_2023.id
+  instance_type               = "t3.micro"
+  subnet_id                   = aws_subnet.public[count.index].id
+  vpc_security_group_ids      = [aws_security_group.sg_web.id]
+  associate_public_ip_address = true
+  key_name                    = aws_key_pair.web.key_name
 
   tags = {
     Name = "${local.prefix}-web-${count.index + 1}"

@@ -1,14 +1,12 @@
 # Terraform app_tier.tf
 # ALB interne + EC2 app + target group
 
-# --- ALB INTERNE (communication web → app) ---
-
 resource "aws_lb" "internal" {
   name               = "${local.prefix}-alb-internal"
-  internal           = true # ALB INTERNE, pas IP publique
+  internal           = true
   load_balancer_type = "application"
   security_groups    = [aws_security_group.sg_alb_internal.id]
-  subnets            = aws_subnet.app[*].id # subnets privés "app"
+  subnets            = aws_subnet.app[*].id
 
   tags = {
     Name = "${local.prefix}-alb-internal"
@@ -49,8 +47,6 @@ resource "aws_lb_listener" "internal_http" {
   }
 }
 
-# --- INSTANCES APP (provisionnées via user_data) ---
-
 data "aws_ami" "amazon_linux_2023" {
   most_recent = true
   owners      = ["amazon"]
@@ -61,32 +57,19 @@ data "aws_ami" "amazon_linux_2023" {
 }
 
 resource "aws_instance" "app" {
-  count           = length(var.azs)
-  ami             = data.aws_ami.amazon_linux_2023.id
-  instance_type   = var.instance_type # "t3.micro"
-  subnet_id       = aws_subnet.app[count.index].id
-  security_groups = [aws_security_group.sg_alb_internal.id]
-
-  # ─── "ANSIBLE" INTÉGRÉ : cloud-init provisionne l'instance ───
-  user_data = templatefile("${path.module}/app/user_data.sh.tpl", {
-    db_host          = data.aws_db_instance.postgres.address
-    db_name          = var.db_name
-    db_user          = var.db_username
-    db_password      = var.db_password
-    app_py_b64       = base64encode(file("${path.module}/app/app.py"))
-    requirements_b64 = base64encode(file("${path.module}/app/requirements.txt"))
-    pepper           = var.pepper
-  })
+  count                  = length(var.azs)
+  ami                    = data.aws_ami.amazon_linux_2023.id
+  instance_type          = var.instance_type
+  subnet_id              = aws_subnet.app[count.index].id
+  vpc_security_group_ids = [aws_security_group.sg_app.id]
+  key_name               = aws_key_pair.app.key_name
 
   tags = {
     Name = "${local.prefix}-app-${count.index + 1}"
   }
 
-  # Dépendance uniquement sur la NAT GW (pour que user_data télécharge les paquets)
   depends_on = [aws_nat_gateway.nat]
 }
-
-# --- ATTACHEMENTS (instances → target group) ---
 
 resource "aws_lb_target_group_attachment" "app" {
   count            = length(aws_instance.app)

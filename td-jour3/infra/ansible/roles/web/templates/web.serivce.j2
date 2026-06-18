@@ -1,0 +1,13 @@
+[Unit]
+Description=Flask Web (formulaire)
+After=network.target
+
+[Service]
+User=flask
+WorkingDirectory=/opt/web
+EnvironmentFile=/opt/web/.env
+ExecStart=/usr/bin/python3 /opt/web/web.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

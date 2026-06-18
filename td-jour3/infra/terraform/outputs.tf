@@ -1,6 +1,25 @@
 # Terraform outputs.tf
 # DNS de ALB public, endpoint RDS....
 
+output "web_public_ips" {
+  description = "IP publiques des instances web (accès Ansible / bastion)"
+  value       = aws_instance.web[*].public_ip
+}
+
+output "web_private_ips" {
+  value = aws_instance.web[*].private_ip
+}
+
+output "app_private_ips" {
+  description = "IP privées des instances app (via ProxyJump web)"
+  value       = aws_instance.app[*].private_ip
+}
+
+output "pepper" {
+  value     = var.pepper
+  sensitive = true
+}
+
 output "rds_endpoint" {
   description = "Endpoint pour connexion depuis l'app tier"
   value       = data.aws_db_instance.postgres.address

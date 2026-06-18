@@ -1,0 +1,46 @@
+---
+- name: Créer le répertoire de l'app
+  file:
+    path: /opt/app
+    state: directory
+    owner: flask
+    group: flask
+
+- name: Copier le code de l'API Flask
+  copy:
+    src: "{{ playbook_dir }}/../terraform/app/app.py"
+    dest: /opt/app/app.py
+    owner: flask
+    group: flask
+
+- name: Copier requirements.txt
+  copy:
+    src: "{{ playbook_dir }}/../terraform/app/requirements.txt"
+    dest: /opt/app/requirements.txt
+
+- name: Installer les dépendances Python
+  pip:
+    requirements: /opt/app/requirements.txt
+    executable: pip3
+
+- name: Déployer le fichier d'environnement
+  template:
+    src: env.j2
+    dest: /opt/app/.env
+    owner: flask
+    group: flask
+    mode: "0600"
+  notify: restart app
+
+- name: Déployer le service systemd
+  template:
+    src: app.service.j2
+    dest: /etc/systemd/system/app.service
+  notify: restart app
+
+- name: Activer et démarrer le service app
+  systemd:
+    name: app
+    enabled: true
+    state: started
+    daemon_reload: true

@@ -32,23 +32,24 @@ variable "azs" {
 
 # --- CIDR des subnets (VPC existant 172.31.0.0/16) ---
 # 172.31.0.0/20, 16.0/20, 32.0/20 = subnets par defaut AWS
-# 172.31.101/102.0/24 = deja utilises par rds-only
 variable "public_subnet_cidrs" {
   description = "CIDR des subnets publics (NAT + ALB public)"
   type        = list(string)
-  default     = ["172.31.48.0/24", "172.31.49.0/24"]
+  default     = ["172.31.48.0/24", "172.31.49.0/24"] # deja crees, OK
 }
 
 variable "web_subnet_cidrs" {
   description = "CIDR des subnets web (prives)"
   type        = list(string)
-  default     = ["172.31.64.0/24", "172.31.65.0/24"]
+  default     = ["172.31.64.0/24", "172.31.65.0/24"] # deja crees, OK
 }
 
 variable "app_subnet_cidrs" {
   description = "CIDR des subnets app (prives)"
   type        = list(string)
-  default     = ["172.31.96.0/24", "172.31.97.0/24"]
+  # CHANGE : 96.0 (td-data-0) et 97.0 etaient en conflit
+  # 160.0 et 161.0 verifies LIBRES
+  default = ["172.31.160.0/24", "172.31.161.0/24"]
 }
 
 # --- Donnees pour les instances EC2 ---
