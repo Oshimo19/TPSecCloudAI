@@ -1,1 +1,4 @@
-nacl.json
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
