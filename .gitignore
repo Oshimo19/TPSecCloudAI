@@ -1,4 +1,21 @@
-.terraform/
+# Terraform
+**/.terraform/*
 *.tfstate
 *.tfstate.*
-terraform.tfvars
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+
+# Ansible
+**/inventory.ini
+
+# SSH keys
+*.pem
+*.key
+terraform-ipssi
+terraform-ipssi.pub
+id_rsa
+id_rsa.pub
+
+# System
+.DS_Store
