@@ -1,0 +1,35 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Variables locales / secrets
+*.tfvars
+!*.tfvars.example
+
+# Ansible local/generated files
+td2-ansible/inventory.ini
+*.retry
+
+# SSH keys / credentials
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+terraform-ipssi
+terraform-ipssi.pub
+.aws/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

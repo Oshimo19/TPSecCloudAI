@@ -1,0 +1,139 @@
+---
+- name: Installer et configurer Suricata sur la sonde
+  hosts: sondes
+  become: true
+  gather_facts: true
+
+  vars:
+    suricata_rule_msg: "TD2 ICMP detecte"
+    suricata_rule_sid: 1000001
+    suricata_rule_file: /etc/suricata/rules/local.rules
+
+  tasks:
+    - name: Installer Suricata et les outils utiles
+      ansible.builtin.apt:
+        name:
+          - suricata
+          - jq
+        state: present
+        update_cache: true
+
+    - name: Detecter l'interface principale
+      ansible.builtin.shell: "ip -o route get 1.1.1.1 | awk '{print $5; exit}'"
+      args:
+        executable: /bin/bash
+      register: iface_cmd
+      changed_when: false
+
+    - name: Definir l'interface Suricata
+      ansible.builtin.set_fact:
+        suricata_iface: "{{ iface_cmd.stdout | default('ens5', true) }}"
+
+    - name: Afficher l'interface utilisee
+      ansible.builtin.debug:
+        msg: "Suricata va ecouter sur l'interface {{ suricata_iface }}"
+
+    - name: Arreter Suricata
+      ansible.builtin.service:
+        name: suricata
+        state: stopped
+      ignore_errors: true
+
+    - name: Reset failed systemd
+      ansible.builtin.shell: systemctl reset-failed suricata || true
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Creer les dossiers Suricata
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - /etc/suricata/rules
+        - /var/log/suricata
+
+    - name: Ajouter la regle locale ICMP du TD
+      ansible.builtin.copy:
+        dest: "{{ suricata_rule_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          alert icmp any any -> any any (msg:"{{ suricata_rule_msg }}"; sid:{{ suricata_rule_sid }}; rev:1;)
+
+    - name: Configurer HOME_NET
+      ansible.builtin.replace:
+        path: /etc/suricata/suricata.yaml
+        regexp: '^(\s*HOME_NET:\s*).*$'
+        replace: '\1"172.31.0.0/16"'
+      ignore_errors: true
+
+    - name: Configurer le chemin des regles
+      ansible.builtin.replace:
+        path: /etc/suricata/suricata.yaml
+        regexp: '^(\s*default-rule-path:\s*).*$'
+        replace: '\1/etc/suricata/rules'
+      ignore_errors: true
+
+    - name: Ajouter local.rules dans suricata.yaml
+      ansible.builtin.lineinfile:
+        path: /etc/suricata/suricata.yaml
+        insertafter: '^rule-files:'
+        line: '  - local.rules'
+        state: present
+      ignore_errors: true
+
+    - name: Creer override systemd
+      ansible.builtin.file:
+        path: /etc/systemd/system/suricata.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Forcer Suricata sur la bonne interface
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/suricata.service.d/override.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Service]
+          ExecStart=
+          ExecStart=/usr/bin/suricata -D -i {{ suricata_iface }} -c /etc/suricata/suricata.yaml --pidfile /run/suricata.pid
+
+    - name: Recharger systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Tester la configuration Suricata
+      ansible.builtin.shell: "suricata -T -c /etc/suricata/suricata.yaml -i {{ suricata_iface }}"
+      args:
+        executable: /bin/bash
+      register: suricata_test
+      changed_when: false
+
+    - name: Afficher test configuration
+      ansible.builtin.debug:
+        var: suricata_test.stdout_lines
+
+    - name: Redemarrer Suricata
+      ansible.builtin.service:
+        name: suricata
+        state: restarted
+        enabled: true
+
+    - name: Verifier Suricata
+      ansible.builtin.shell: "systemctl is-active suricata && systemctl --no-pager --full status suricata | head -n 25"
+      args:
+        executable: /bin/bash
+      register: suricata_status
+      changed_when: false
+
+    - name: Resultat Suricata
+      ansible.builtin.debug:
+        var: suricata_status.stdout_lines

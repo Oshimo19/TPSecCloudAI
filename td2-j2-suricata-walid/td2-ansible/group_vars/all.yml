@@ -1,0 +1,5 @@
+---
+suricata_rule_msg: "TD2 ICMP detecte"
+suricata_rule_sid: 1000001
+suricata_rule_file: /etc/suricata/rules/local.rules
+suricata_fast_log: /var/log/suricata/fast.log

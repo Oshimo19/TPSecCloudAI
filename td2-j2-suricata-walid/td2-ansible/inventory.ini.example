@@ -1,0 +1,8 @@
+# Exemple d'inventaire Ansible base sur ton TP1.
+# Le Makefile genere automatiquement td2-ansible/inventory.ini apres terraform apply.
+
+[bastion]
+bastion ansible_host=<BASTION_PUBLIC_IP> ansible_user=ubuntu ansible_ssh_private_key_file=/root/.ssh/terraform-ipssi
+
+[sondes]
+sonde-suricata ansible_host=<SONDE_PRIVATE_IP> ansible_user=ubuntu ansible_ssh_private_key_file=/root/.ssh/terraform-ipssi ansible_ssh_common_args='-o StrictHostKeyChecking=no -o ProxyCommand="ssh -W %h:%p -q -o StrictHostKeyChecking=no -i /root/.ssh/terraform-ipssi ubuntu@<BASTION_PUBLIC_IP>"'

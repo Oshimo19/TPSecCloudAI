@@ -1,0 +1,27 @@
+td2-j2-suricata-walid/
+├── .gitignore
+├── Makefile
+├── ARBORESCENCE.txt
+├── td2-ansible/
+│   ├── README.md
+│   ├── ansible.cfg
+│   ├── inventory.ini.example
+│   ├── install_suricata.yml
+│   ├── test_alerte.yml
+│   ├── group_vars/
+│   │   └── all.yml
+│   └── scripts/
+│       └── show_suricata_alerts.sh
+└── td2-terraform/
+    ├── README.md
+    ├── provider.tf
+    ├── variables.tf
+    ├── terraform.tfvars
+    ├── terraform.tfvars.example
+    ├── data.tf
+    ├── bastion.tf
+    ├── egress.tf
+    ├── suricata.tf
+    ├── outputs.tf
+    ├── commands.sh
+    └── compte_rendu_TD2.md
