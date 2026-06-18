@@ -1,0 +1,44 @@
+---
+- name: Generer du trafic ICMP depuis le bastion vers la sonde
+  hosts: bastion
+  gather_facts: false
+  vars:
+    target_sonde_ip: "{{ hostvars[groups['sondes'][0]].ansible_host }}"
+
+  tasks:
+    - name: Ping vers la sonde Suricata
+      ansible.builtin.command: "ping -c 4 {{ target_sonde_ip }}"
+      register: ping_result
+      changed_when: false
+
+    - name: Afficher le resultat du ping
+      ansible.builtin.debug:
+        var: ping_result.stdout_lines
+
+- name: Verifier les alertes Suricata sur la sonde
+  hosts: sondes
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Attendre l'ecriture de l'alerte
+      ansible.builtin.pause:
+        seconds: 3
+
+    - name: Lire les dernieres alertes Suricata
+      ansible.builtin.shell: "tail -n 50 /var/log/suricata/fast.log || true"
+      register: suricata_alerts
+      changed_when: false
+
+    - name: Afficher les alertes
+      ansible.builtin.debug:
+        var: suricata_alerts.stdout_lines
+
+    - name: Verifier la presence du message TD2
+      ansible.builtin.shell: "grep -F 'TD2 ICMP detecte' /var/log/suricata/fast.log | tail -n 5 || true"
+      register: td2_alert
+      changed_when: false
+
+    - name: Resultat du test d'alerte
+      ansible.builtin.debug:
+        msg: "{{ 'Alerte Suricata trouvee' if td2_alert.stdout != '' else 'Aucune alerte trouvee pour le moment' }}"

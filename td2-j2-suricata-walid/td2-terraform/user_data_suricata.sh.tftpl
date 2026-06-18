@@ -1,0 +1,37 @@
+#!/bin/bash
+set -eux
+
+USER_NAME="${ssh_user}"
+SSH_KEY='${ssh_public_key}'
+
+if ! id "$USER_NAME" >/dev/null 2>&1; then
+  useradd -m -s /bin/bash "$USER_NAME"
+  usermod -aG sudo "$USER_NAME" || true
+  echo "$USER_NAME ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/90-$USER_NAME
+  chmod 440 /etc/sudoers.d/90-$USER_NAME
+fi
+
+USER_HOME=$(eval echo "~$USER_NAME")
+mkdir -p "$USER_HOME/.ssh"
+echo "$SSH_KEY" > "$USER_HOME/.ssh/authorized_keys"
+chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/.ssh"
+chmod 700 "$USER_HOME/.ssh"
+chmod 600 "$USER_HOME/.ssh/authorized_keys"
+
+if command -v apt-get >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y
+  apt-get install -y suricata jq
+elif command -v dnf >/dev/null 2>&1; then
+  dnf install -y suricata jq || true
+elif command -v yum >/dev/null 2>&1; then
+  yum install -y suricata jq || true
+fi
+
+mkdir -p /etc/suricata/rules /var/log/suricata
+cat >/etc/suricata/rules/local.rules <<'RULES'
+alert icmp any any -> any any (msg:"TD2 ICMP detecte"; sid:1000001; rev:1;)
+RULES
+
+systemctl enable suricata || true
+systemctl restart suricata || true
